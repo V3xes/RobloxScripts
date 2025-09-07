@@ -1,0 +1,130 @@
+-- 99 Nights In The Forest - Complete Voidware with Chest Features
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Load the FULL original Voidware script
+loadstring(game:HttpGet("https://raw.githubusercontent.com/VapeVoidware/VW-Add/main/newnightsintheforest.lua", true))()
+
+-- Chest Automation System (Added Feature)
+local ChestSystem = {
+    Chests = {},
+    AutoOpen = false,
+    TeleportToChests = false,
+    TeleportDelay = 1,
+    ChestOpenRadius = 25
+}
+
+function ChestSystem:FindChests()
+    self.Chests = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj.Name:lower():find("chest") and obj:IsA("Model") then
+            local primaryPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+            if primaryPart then
+                table.insert(self.Chests, {
+                    Model = obj,
+                    Position = primaryPart.Position,
+                    Opened = false
+                })
+            end
+        end
+    end
+    return #self.Chests
+end
+
+function ChestSystem:TeleportToChest(chest)
+    if not chest or not chest.Position then return false end
+    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+    local rootPart = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not rootPart then return false end
+    
+    rootPart.CFrame = CFrame.new(chest.Position + Vector3.new(0, 5, 0))
+    return true
+end
+
+function ChestSystem:OpenNearbyChests()
+    local character = LocalPlayer.Character
+    if not character then return end
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
+    
+    for _, chest in ipairs(self.Chests) do
+        if not chest.Opened and (rootPart.Position - chest.Position).Magnitude <= self.ChestOpenRadius then
+            -- Try to interact with the chest
+            local clickDetector = chest.Model:FindFirstChildWhichIsA("ClickDetector")
+            if clickDetector then
+                firesignal(clickDetector.MouseClick)
+            end
+            chest.Opened = true
+            task.wait(0.2)
+        end
+    end
+end
+
+-- Chest handling loop
+task.spawn(function()
+    while true do
+        if ChestSystem.AutoOpen or ChestSystem.TeleportToChests then
+            ChestSystem:FindChests()
+            
+            if ChestSystem.TeleportToChests and #ChestSystem.Chests > 0 then
+                for _, chest in ipairs(ChestSystem.Chests) do
+                    if not chest.Opened then
+                        if ChestSystem:TeleportToChest(chest) then
+                            task.wait(0.5)
+                            if ChestSystem.AutoOpen then
+                                ChestSystem:OpenNearbyChests()
+                            end
+                            break
+                        end
+                    end
+                end
+            elseif ChestSystem.AutoOpen then
+                ChestSystem:OpenNearbyChests()
+            end
+        end
+        task.wait(1)
+    end
+end)
+
+-- Simple GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ChestControlGUI"
+ScreenGui.Parent = game:GetService("CoreGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 200, 0, 120)
+MainFrame.Position = UDim2.new(0, 10, 0, 10)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.Parent = ScreenGui
+
+local AutoOpenToggle = Instance.new("TextButton")
+AutoOpenToggle.Size = UDim2.new(0.9, 0, 0, 30)
+AutoOpenToggle.Position = UDim2.new(0.05, 0, 0, 40)
+AutoOpenToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+AutoOpenToggle.Text = "Auto Open: OFF"
+AutoOpenToggle.TextColor3 = Color3.fromRGB(255, 100, 100)
+AutoOpenToggle.Parent = MainFrame
+
+local TeleportToggle = Instance.new("TextButton")
+TeleportToggle.Size = UDim2.new(0.9, 0, 0, 30)
+TeleportToggle.Position = UDim2.new(0.05, 0, 0, 80)
+TeleportToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+TeleportToggle.Text = "Teleport: OFF"
+TeleportToggle.TextColor3 = Color3.fromRGB(255, 100, 100)
+TeleportToggle.Parent = MainFrame
+
+AutoOpenToggle.MouseButton1Click:Connect(function()
+    ChestSystem.AutoOpen = not ChestSystem.AutoOpen
+    AutoOpenToggle.Text = "Auto Open: " .. (ChestSystem.AutoOpen and "ON" or "OFF")
+    AutoOpenToggle.TextColor3 = ChestSystem.AutoOpen and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+end)
+
+TeleportToggle.MouseButton1Click:Connect(function()
+    ChestSystem.TeleportToChests = not ChestSystem.TeleportToChests
+    TeleportToggle.Text = "Teleport: " .. (ChestSystem.TeleportToChests and "ON" or "OFF")
+    TeleportToggle.TextColor3 = ChestSystem.TeleportToChests and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+end)
+
+warn("Enhanced Voidware loaded! Chest features added.")
