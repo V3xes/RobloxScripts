@@ -199,7 +199,7 @@ task.spawn(function()
     end
 end)
 
--- Wait for Voidware UI to load and integrate features
+-- Integrate into Voidware UI
 task.spawn(function()
     local maxWaitTime = 30
     local waitTime = 0
@@ -207,77 +207,92 @@ task.spawn(function()
     while waitTime < maxWaitTime do
         local voidwareUI = game:GetService("CoreGui"):FindFirstChild("Voidware")
         if voidwareUI then
-            -- Find Main tab
-            local mainTab = voidwareUI:FindFirstChild("MainFrame") or voidwareUI:FindFirstChildWhichIsA("Frame")
+            -- Find Main Tab
+            local mainTab = voidwareUI:FindFirstChild("Main") or voidwareUI:FindFirstChild("HomeTab") or voidwareUI:FindFirstChildWhichIsA("Frame")
             if mainTab then
-                -- Add Auto Open to Main tab
-                local autoOpenBtn = Instance.new("TextButton")
-                autoOpenBtn.Name = "AutoChestOpen"
-                autoOpenBtn.Size = UDim2.new(0.9, 0, 0, 25)
-                autoOpenBtn.Position = UDim2.new(0.05, 0, 0, mainTab.AbsoluteSize.Y - 100)
-                autoOpenBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-                autoOpenBtn.BorderSizePixel = 0
-                autoOpenBtn.Text = "Auto Open Chests: OFF"
-                autoOpenBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-                autoOpenBtn.Font = Enum.Font.Gotham
-                autoOpenBtn.TextSize = 12
-                autoOpenBtn.Parent = mainTab
+                -- Add Auto Open to Main Tab
+                local autoOpenLabel = Instance.new("TextLabel")
+                autoOpenLabel.Name = "AutoChestLabel"
+                autoOpenLabel.Size = UDim2.new(0, 120, 0, 20)
+                autoOpenLabel.Position = UDim2.new(0, 10, 0, 200)
+                autoOpenLabel.BackgroundTransparency = 1
+                autoOpenLabel.Text = "Auto Open Chests:"
+                autoOpenLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                autoOpenLabel.Font = Enum.Font.Gotham
+                autoOpenLabel.TextSize = 12
+                autoOpenLabel.TextXAlignment = Enum.TextXAlignment.Left
+                autoOpenLabel.Parent = mainTab
                 
-                autoOpenBtn.MouseButton1Click:Connect(function()
-                    ChestSystem.AutoOpen = not ChestSystem.AutoOpen
-                    autoOpenBtn.Text = "Auto Open Chests: " .. (ChestSystem.AutoOpen and "ON" or "OFF")
-                    autoOpenBtn.TextColor3 = ChestSystem.AutoOpen and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
-                end)
+                local autoOpenToggle = Instance.new("TextButton")
+                autoOpenToggle.Name = "AutoChestToggle"
+                autoOpenToggle.Size = UDim2.new(0, 40, 0, 20)
+                autoOpenToggle.Position = UDim2.new(0, 140, 0, 200)
+                autoOpenToggle.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+                autoOpenToggle.BorderSizePixel = 0
+                autoOpenToggle.Text = "OFF"
+                autoOpenToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+                autoOpenToggle.Font = Enum.Font.GothamBold
+                autoOpenToggle.TextSize = 12
+                autoOpenToggle.Parent = mainTab
                 
-                -- Add Teleport to Chests to Main tab
-                local teleportBtn = Instance.new("TextButton")
-                teleportBtn.Name = "TeleportToChests"
-                teleportBtn.Size = UDim2.new(0.9, 0, 0, 25)
-                teleportBtn.Position = UDim2.new(0.05, 0, 0, mainTab.AbsoluteSize.Y - 70)
-                teleportBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-                teleportBtn.BorderSizePixel = 0
-                teleportBtn.Text = "Teleport to Chests: OFF"
-                teleportBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-                teleportBtn.Font = Enum.Font.Gotham
-                teleportBtn.TextSize = 12
-                teleportBtn.Parent = mainTab
+                -- Add Teleport to Main Tab
+                local teleportLabel = Instance.new("TextLabel")
+                teleportLabel.Name = "TeleportChestLabel"
+                teleportLabel.Size = UDim2.new(0, 120, 0, 20)
+                teleportLabel.Position = UDim2.new(0, 10, 0, 225)
+                teleportLabel.BackgroundTransparency = 1
+                teleportLabel.Text = "Teleport to Chests:"
+                teleportLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                teleportLabel.Font = Enum.Font.Gotham
+                teleportLabel.TextSize = 12
+                teleportLabel.TextXAlignment = Enum.TextXAlignment.Left
+                teleportLabel.Parent = mainTab
                 
-                teleportBtn.MouseButton1Click:Connect(function()
-                    ChestSystem.TeleportToChests = not ChestSystem.TeleportToChests
-                    teleportBtn.Text = "Teleport to Chests: " .. (ChestSystem.TeleportToChests and "ON" or "OFF")
-                    teleportBtn.TextColor3 = ChestSystem.TeleportToChests and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
-                end)
+                local teleportToggle = Instance.new("TextButton")
+                teleportToggle.Name = "TeleportChestToggle"
+                teleportToggle.Size = UDim2.new(0, 40, 0, 20)
+                teleportToggle.Position = UDim2.new(0, 140, 0, 225)
+                teleportToggle.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+                teleportToggle.BorderSizePixel = 0
+                teleportToggle.Text = "OFF"
+                teleportToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+                teleportToggle.Font = Enum.Font.GothamBold
+                teleportToggle.TextSize = 12
+                teleportToggle.Parent = mainTab
                 
-                -- Find ESP tab (usually named "Visuals" or "ESP")
-                local espTab = voidwareUI:FindFirstChild("Visuals") or voidwareUI:FindFirstChild("ESPTab") or voidwareUI:FindFirstChild("ESP")
-                if not espTab then
-                    -- Look for tabs with ESP content
-                    for _, child in ipairs(voidwareUI:GetDescendants()) do
-                        if child:IsA("TextLabel") and child.Text:lower():find("esp") then
-                            espTab = child.Parent
-                            break
-                        end
-                    end
-                end
-                
-                if espTab then
-                    -- Add Chest ESP to ESP tab
-                    local chestEspBtn = Instance.new("TextButton")
-                    chestEspBtn.Name = "ChestESP"
-                    chestEspBtn.Size = UDim2.new(0.9, 0, 0, 25)
-                    chestEspBtn.Position = UDim2.new(0.05, 0, 0, espTab.AbsoluteSize.Y - 50)
-                    chestEspBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-                    chestEspBtn.BorderSizePixel = 0
-                    chestEspBtn.Text = "Chest ESP: OFF"
-                    chestEspBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-                    chestEspBtn.Font = Enum.Font.Gotham
-                    chestEspBtn.TextSize = 12
-                    chestEspBtn.Parent = espTab
+                -- Find Visuals/ESP Tab
+                local visualsTab = voidwareUI:FindFirstChild("Visuals") or voidwareUI:FindFirstChild("ESP") or voidwareUI:FindFirstChild("Render")
+                if visualsTab then
+                    -- Add Chest ESP to Visuals Tab
+                    local espLabel = Instance.new("TextLabel")
+                    espLabel.Name = "ChestESPLabel"
+                    espLabel.Size = UDim2.new(0, 120, 0, 20)
+                    espLabel.Position = UDim2.new(0, 10, 0, 150)
+                    espLabel.BackgroundTransparency = 1
+                    espLabel.Text = "Chest ESP:"
+                    espLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    espLabel.Font = Enum.Font.Gotham
+                    espLabel.TextSize = 12
+                    espLabel.TextXAlignment = Enum.TextXAlignment.Left
+                    espLabel.Parent = visualsTab
                     
-                    chestEspBtn.MouseButton1Click:Connect(function()
+                    local espToggle = Instance.new("TextButton")
+                    espToggle.Name = "ChestESPToggle"
+                    espToggle.Size = UDim2.new(0, 40, 0, 20)
+                    espToggle.Position = UDim2.new(0, 140, 0, 150)
+                    espToggle.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+                    espToggle.BorderSizePixel = 0
+                    espToggle.Text = "OFF"
+                    espToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    espToggle.Font = Enum.Font.GothamBold
+                    espToggle.TextSize = 12
+                    espToggle.Parent = visualsTab
+                    
+                    -- ESP Toggle functionality
+                    espToggle.MouseButton1Click:Connect(function()
                         ChestSystem.ESPEnabled = not ChestSystem.ESPEnabled
-                        chestEspBtn.Text = "Chest ESP: " .. (ChestSystem.ESPEnabled and "ON" or "OFF")
-                        chestEspBtn.TextColor3 = ChestSystem.ESPEnabled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+                        espToggle.Text = ChestSystem.ESPEnabled and "ON" or "OFF"
+                        espToggle.BackgroundColor3 = ChestSystem.ESPEnabled and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
                         
                         if ChestSystem.ESPEnabled then
                             for _, chest in ipairs(ChestSystem.Chests) do
@@ -288,6 +303,19 @@ task.spawn(function()
                         end
                     end)
                 end
+                
+                -- Toggle functionality
+                autoOpenToggle.MouseButton1Click:Connect(function()
+                    ChestSystem.AutoOpen = not ChestSystem.AutoOpen
+                    autoOpenToggle.Text = ChestSystem.AutoOpen and "ON" or "OFF"
+                    autoOpenToggle.BackgroundColor3 = ChestSystem.AutoOpen and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+                end)
+                
+                teleportToggle.MouseButton1Click:Connect(function()
+                    ChestSystem.TeleportToChests = not ChestSystem.TeleportToChests
+                    teleportToggle.Text = ChestSystem.TeleportToChests and "ON" or "OFF"
+                    teleportToggle.BackgroundColor3 = ChestSystem.TeleportToChests and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+                end)
                 
                 warn("Chest features integrated into Voidware UI!")
                 break
