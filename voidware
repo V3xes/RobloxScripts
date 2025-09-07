@@ -1,13 +1,12 @@
--- Complete Voidware with Auto-Chest & ESP System
+-- Complete Voidware with Auto-Chest, Teleport, and ESP
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 
--- Load Voidware from V3xes repository
-loadstring(game:HttpGet("https://raw.githubusercontent.com/V3xes/RobloxScripts/refs/heads/main/voidware", true))()
+-- Load the official Voidware
+loadstring(game:HttpGet("https://raw.githubusercontent.com/VapeVoidware/VW-Add/main/newnightsintheforest.lua", true))()
 
 -- Auto Chest System with ESP
 local ChestSystem = {
@@ -37,16 +36,6 @@ function ChestSystem:CreateESP(chest)
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     highlight.Parent = CoreGui
     
-    -- Add distance label
-    local distanceLabel = Instance.new("TextLabel")
-    distanceLabel.Name = "DistanceLabel"
-    distanceLabel.BackgroundTransparency = 1
-    distanceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    distanceLabel.TextSize = 14
-    distanceLabel.Font = Enum.Font.GothamBold
-    distanceLabel.Visible = false
-    distanceLabel.Parent = highlight
-    
     self.ESPHighlights[chest.Model] = highlight
     return highlight
 end
@@ -69,17 +58,6 @@ function ChestSystem:UpdateESP()
             
             if chestData then
                 highlight.FillColor = chestData.Opened and Color3.fromRGB(100, 100, 100) or Color3.fromRGB(0, 255, 0)
-                
-                -- Update distance label
-                if rootPart and chestModel.PrimaryPart then
-                    local distance = (rootPart.Position - chestModel.PrimaryPart.Position).Magnitude
-                    local distanceLabel = highlight:FindFirstChild("DistanceLabel")
-                    if distanceLabel then
-                        distanceLabel.Text = math.floor(distance) .. " studs"
-                        distanceLabel.Position = UDim2.new(0.5, 0, 0, -20)
-                        distanceLabel.Visible = distance < 100
-                    end
-                end
             else
                 highlight:Destroy()
                 self.ESPHighlights[chestModel] = nil
@@ -123,8 +101,7 @@ function ChestSystem:FindChests()
     local foundChests = {}
     
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if (obj.Name:lower():find("chest") or obj.Name:lower():find("box") or obj.Name:lower():find("crate") or
-            obj.Name:lower():find("reward") or obj.Name:lower():find("loot")) and obj:IsA("Model") then
+        if (obj.Name:lower():find("chest") or obj.Name:lower():find("box") or obj.Name:lower():find("crate")) and obj:IsA("Model") then
             local primaryPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
             if primaryPart then
                 local opened = oldChests[obj] or false
@@ -175,23 +152,14 @@ function ChestSystem:OpenNearbyChests()
     
     for _, chest in ipairs(self.Chests) do
         if not chest.Opened and (rootPart.Position - chest.Position).Magnitude <= self.ChestOpenRadius then
-            -- Try different methods to open chest
+            -- Try to interact with the chest
             local clickDetector = chest.Model:FindFirstChildWhichIsA("ClickDetector")
             local proximityPrompt = chest.Model:FindFirstChildWhichIsA("ProximityPrompt")
-            local touchInterest = chest.Model:FindFirstChildWhichIsA("TouchTransmitter")
             
             if clickDetector then
                 fireclickdetector(clickDetector)
             elseif proximityPrompt then
                 fireproximityprompt(proximityPrompt)
-            elseif touchInterest then
-                -- For touch-based interactions
-                local humanoid = character:FindFirstChildWhichIsA("Humanoid")
-                if humanoid then
-                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                    task.wait(0.1)
-                    humanoid:ChangeState(Enum.HumanoidStateType.Running)
-                end
             end
             
             chest.Opened = true
@@ -205,7 +173,7 @@ end
 
 -- Chest handling loop
 task.spawn(function()
-    while true do
+    while task.wait(1) do
         if ChestSystem.AutoOpen or ChestSystem.TeleportToChests or ChestSystem.ESPEnabled then
             ChestSystem:FindChests()
             
@@ -229,18 +197,17 @@ task.spawn(function()
                 ChestSystem:UpdateESP()
             end
         end
-        task.wait(1)
     end
 end)
 
--- Enhanced UI
+-- Simple UI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ChestControlGUI"
 ScreenGui.Parent = CoreGui
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 220, 0, 160)
+MainFrame.Size = UDim2.new(0, 200, 0, 160)
 MainFrame.Position = UDim2.new(0, 10, 0, 10)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 MainFrame.BorderSizePixel = 1
@@ -291,17 +258,6 @@ ESPToggle.Font = Enum.Font.Gotham
 ESPToggle.TextSize = 12
 ESPToggle.Parent = MainFrame
 
-local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.new(0, 20, 0, 20)
-CloseButton.Position = UDim2.new(1, -20, 0, 0)
-CloseButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-CloseButton.BorderSizePixel = 0
-CloseButton.Text = "X"
-CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseButton.Font = Enum.Font.GothamBold
-CloseButton.TextSize = 12
-CloseButton.Parent = MainFrame
-
 -- Button functionality
 AutoOpenToggle.MouseButton1Click:Connect(function()
     ChestSystem.AutoOpen = not ChestSystem.AutoOpen
@@ -321,46 +277,4 @@ ESPToggle.MouseButton1Click:Connect(function()
     ESPToggle.TextColor3 = enabled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
 end)
 
-CloseButton.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
-    ChestSystem:ClearESP()
-end)
-
--- Make UI draggable
-local dragging = false
-local dragInput, dragStart, startPos
-
-Title.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-
-Title.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
-end)
-
-game:GetService("UserInputService").InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
-warn("Enhanced Voidware loaded! Features: Auto-Chest, Teleport, ESP")
-
--- Initial scan
-task.spawn(function()
-    task.wait(3)
-    local chestCount = ChestSystem:FindChests()
-    warn("Found " .. chestCount .. " chests in the game")
-end)
+warn("Voidware loaded with Auto-Chest, Teleport, and ESP features!")
