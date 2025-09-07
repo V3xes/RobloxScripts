@@ -1,45 +1,169 @@
--- 99 Nights In The Forest - Complete Voidware with Chest Features
+-- Complete Voidware with Auto-Chest & ESP System
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
 
--- Load the FULL original Voidware script
-loadstring(game:HttpGet("https://raw.githubusercontent.com/VapeVoidware/VW-Add/main/newnightsintheforest.lua", true))()
+-- Load Voidware from V3xes repository
+loadstring(game:HttpGet("https://raw.githubusercontent.com/V3xes/RobloxScripts/refs/heads/main/voidware", true))()
 
--- Chest Automation System (Added Feature)
+-- Auto Chest System with ESP
 local ChestSystem = {
     Chests = {},
     AutoOpen = false,
     TeleportToChests = false,
-    TeleportDelay = 1,
-    ChestOpenRadius = 25
+    ChestOpenRadius = 25,
+    ESPEnabled = false,
+    ESPHighlights = {}
 }
 
+-- ESP Functions
+function ChestSystem:CreateESP(chest)
+    if not chest or not chest.Model or not chest.Model.PrimaryPart then return end
+    
+    if self.ESPHighlights[chest.Model] then
+        self.ESPHighlights[chest.Model]:Destroy()
+    end
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ChestESP"
+    highlight.Adornee = chest.Model
+    highlight.FillColor = chest.Opened and Color3.fromRGB(100, 100, 100) or Color3.fromRGB(0, 255, 0)
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = CoreGui
+    
+    -- Add distance label
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.Name = "DistanceLabel"
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    distanceLabel.TextSize = 14
+    distanceLabel.Font = Enum.Font.GothamBold
+    distanceLabel.Visible = false
+    distanceLabel.Parent = highlight
+    
+    self.ESPHighlights[chest.Model] = highlight
+    return highlight
+end
+
+function ChestSystem:UpdateESP()
+    if not self.ESPEnabled then return end
+    
+    local character = LocalPlayer.Character
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    
+    for chestModel, highlight in pairs(self.ESPHighlights) do
+        if chestModel and chestModel.Parent and highlight and highlight.Parent then
+            local chestData
+            for _, c in ipairs(self.Chests) do
+                if c.Model == chestModel then
+                    chestData = c
+                    break
+                end
+            end
+            
+            if chestData then
+                highlight.FillColor = chestData.Opened and Color3.fromRGB(100, 100, 100) or Color3.fromRGB(0, 255, 0)
+                
+                -- Update distance label
+                if rootPart and chestModel.PrimaryPart then
+                    local distance = (rootPart.Position - chestModel.PrimaryPart.Position).Magnitude
+                    local distanceLabel = highlight:FindFirstChild("DistanceLabel")
+                    if distanceLabel then
+                        distanceLabel.Text = math.floor(distance) .. " studs"
+                        distanceLabel.Position = UDim2.new(0.5, 0, 0, -20)
+                        distanceLabel.Visible = distance < 100
+                    end
+                end
+            else
+                highlight:Destroy()
+                self.ESPHighlights[chestModel] = nil
+            end
+        else
+            highlight:Destroy()
+            self.ESPHighlights[chestModel] = nil
+        end
+    end
+end
+
+function ChestSystem:ClearESP()
+    for _, highlight in pairs(self.ESPHighlights) do
+        if highlight then
+            highlight:Destroy()
+        end
+    end
+    self.ESPHighlights = {}
+end
+
+function ChestSystem:ToggleESP()
+    self.ESPEnabled = not self.ESPEnabled
+    if self.ESPEnabled then
+        for _, chest in ipairs(self.Chests) do
+            self:CreateESP(chest)
+        end
+    else
+        self:ClearESP()
+    end
+    return self.ESPEnabled
+end
+
+-- Chest Functions
 function ChestSystem:FindChests()
+    local oldChests = {}
+    for _, chest in ipairs(self.Chests) do
+        oldChests[chest.Model] = chest.Opened
+    end
+    
     self.Chests = {}
+    local foundChests = {}
+    
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj.Name:lower():find("chest") and obj:IsA("Model") then
+        if (obj.Name:lower():find("chest") or obj.Name:lower():find("box") or obj.Name:lower():find("crate") or
+            obj.Name:lower():find("reward") or obj.Name:lower():find("loot")) and obj:IsA("Model") then
             local primaryPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
             if primaryPart then
-                table.insert(self.Chests, {
+                local opened = oldChests[obj] or false
+                local chestData = {
                     Model = obj,
                     Position = primaryPart.Position,
-                    Opened = false
-                })
+                    Opened = opened
+                }
+                table.insert(self.Chests, chestData)
+                foundChests[obj] = true
+                
+                if self.ESPEnabled and not self.ESPHighlights[obj] then
+                    self:CreateESP(chestData)
+                end
             end
         end
     end
+    
+    -- Clean up ESP for removed chests
+    for chestModel in pairs(self.ESPHighlights) do
+        if not foundChests[chestModel] then
+            if self.ESPHighlights[chestModel] then
+                self.ESPHighlights[chestModel]:Destroy()
+            end
+            self.ESPHighlights[chestModel] = nil
+        end
+    end
+    
     return #self.Chests
 end
 
 function ChestSystem:TeleportToChest(chest)
     if not chest or not chest.Position then return false end
-    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
-    local rootPart = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local character = LocalPlayer.Character
+    local humanoid = character and character:FindFirstChildWhichIsA("Humanoid")
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
     if not humanoid or not rootPart then return false end
     
-    rootPart.CFrame = CFrame.new(chest.Position + Vector3.new(0, 5, 0))
+    rootPart.CFrame = CFrame.new(chest.Position + Vector3.new(0, 3, 0))
     return true
 end
 
@@ -51,13 +175,30 @@ function ChestSystem:OpenNearbyChests()
     
     for _, chest in ipairs(self.Chests) do
         if not chest.Opened and (rootPart.Position - chest.Position).Magnitude <= self.ChestOpenRadius then
-            -- Try to interact with the chest
+            -- Try different methods to open chest
             local clickDetector = chest.Model:FindFirstChildWhichIsA("ClickDetector")
+            local proximityPrompt = chest.Model:FindFirstChildWhichIsA("ProximityPrompt")
+            local touchInterest = chest.Model:FindFirstChildWhichIsA("TouchTransmitter")
+            
             if clickDetector then
-                firesignal(clickDetector.MouseClick)
+                fireclickdetector(clickDetector)
+            elseif proximityPrompt then
+                fireproximityprompt(proximityPrompt)
+            elseif touchInterest then
+                -- For touch-based interactions
+                local humanoid = character:FindFirstChildWhichIsA("Humanoid")
+                if humanoid then
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                    task.wait(0.1)
+                    humanoid:ChangeState(Enum.HumanoidStateType.Running)
+                end
             end
+            
             chest.Opened = true
-            task.wait(0.2)
+            if self.ESPEnabled and self.ESPHighlights[chest.Model] then
+                self.ESPHighlights[chest.Model].FillColor = Color3.fromRGB(100, 100, 100)
+            end
+            task.wait(0.3)
         end
     end
 end
@@ -65,7 +206,7 @@ end
 -- Chest handling loop
 task.spawn(function()
     while true do
-        if ChestSystem.AutoOpen or ChestSystem.TeleportToChests then
+        if ChestSystem.AutoOpen or ChestSystem.TeleportToChests or ChestSystem.ESPEnabled then
             ChestSystem:FindChests()
             
             if ChestSystem.TeleportToChests and #ChestSystem.Chests > 0 then
@@ -83,38 +224,85 @@ task.spawn(function()
             elseif ChestSystem.AutoOpen then
                 ChestSystem:OpenNearbyChests()
             end
+            
+            if ChestSystem.ESPEnabled then
+                ChestSystem:UpdateESP()
+            end
         end
         task.wait(1)
     end
 end)
 
--- Simple GUI
+-- Enhanced UI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ChestControlGUI"
-ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.Parent = CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 200, 0, 120)
+MainFrame.Size = UDim2.new(0, 220, 0, 160)
 MainFrame.Position = UDim2.new(0, 10, 0, 10)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderSizePixel = 1
+MainFrame.BorderColor3 = Color3.fromRGB(80, 80, 80)
 MainFrame.Parent = ScreenGui
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Position = UDim2.new(0, 0, 0, 0)
+Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Title.BorderSizePixel = 0
+Title.Text = "Chest Controls"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.Parent = MainFrame
 
 local AutoOpenToggle = Instance.new("TextButton")
 AutoOpenToggle.Size = UDim2.new(0.9, 0, 0, 30)
-AutoOpenToggle.Position = UDim2.new(0.05, 0, 0, 40)
+AutoOpenToggle.Position = UDim2.new(0.05, 0, 0, 35)
 AutoOpenToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+AutoOpenToggle.BorderSizePixel = 0
 AutoOpenToggle.Text = "Auto Open: OFF"
 AutoOpenToggle.TextColor3 = Color3.fromRGB(255, 100, 100)
+AutoOpenToggle.Font = Enum.Font.Gotham
+AutoOpenToggle.TextSize = 12
 AutoOpenToggle.Parent = MainFrame
 
 local TeleportToggle = Instance.new("TextButton")
 TeleportToggle.Size = UDim2.new(0.9, 0, 0, 30)
-TeleportToggle.Position = UDim2.new(0.05, 0, 0, 80)
+TeleportToggle.Position = UDim2.new(0.05, 0, 0, 70)
 TeleportToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+TeleportToggle.BorderSizePixel = 0
 TeleportToggle.Text = "Teleport: OFF"
 TeleportToggle.TextColor3 = Color3.fromRGB(255, 100, 100)
+TeleportToggle.Font = Enum.Font.Gotham
+TeleportToggle.TextSize = 12
 TeleportToggle.Parent = MainFrame
 
+local ESPToggle = Instance.new("TextButton")
+ESPToggle.Size = UDim2.new(0.9, 0, 0, 30)
+ESPToggle.Position = UDim2.new(0.05, 0, 0, 105)
+ESPToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+ESPToggle.BorderSizePixel = 0
+ESPToggle.Text = "ESP: OFF"
+ESPToggle.TextColor3 = Color3.fromRGB(255, 100, 100)
+ESPToggle.Font = Enum.Font.Gotham
+ESPToggle.TextSize = 12
+ESPToggle.Parent = MainFrame
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 20, 0, 20)
+CloseButton.Position = UDim2.new(1, -20, 0, 0)
+CloseButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+CloseButton.BorderSizePixel = 0
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextSize = 12
+CloseButton.Parent = MainFrame
+
+-- Button functionality
 AutoOpenToggle.MouseButton1Click:Connect(function()
     ChestSystem.AutoOpen = not ChestSystem.AutoOpen
     AutoOpenToggle.Text = "Auto Open: " .. (ChestSystem.AutoOpen and "ON" or "OFF")
@@ -127,4 +315,52 @@ TeleportToggle.MouseButton1Click:Connect(function()
     TeleportToggle.TextColor3 = ChestSystem.TeleportToChests and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
 end)
 
-warn("Enhanced Voidware loaded! Chest features added.")
+ESPToggle.MouseButton1Click:Connect(function()
+    local enabled = ChestSystem:ToggleESP()
+    ESPToggle.Text = "ESP: " .. (enabled and "ON" or "OFF")
+    ESPToggle.TextColor3 = enabled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+end)
+
+CloseButton.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+    ChestSystem:ClearESP()
+end)
+
+-- Make UI draggable
+local dragging = false
+local dragInput, dragStart, startPos
+
+Title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+Title.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+warn("Enhanced Voidware loaded! Features: Auto-Chest, Teleport, ESP")
+
+-- Initial scan
+task.spawn(function()
+    task.wait(3)
+    local chestCount = ChestSystem:FindChests()
+    warn("Found " .. chestCount .. " chests in the game")
+end)
