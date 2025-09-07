@@ -1,14 +1,191 @@
--- Complete Voidware with Auto-Chest, Teleport, and ESP
-if not game:IsLoaded() then game.Loaded:Wait() end
+--[[
+██╗   ██╗ ██████╗ ██╗██████╗ ██╗    ██╗ █████╗ ██████╗ ███████╗
+██║   ██║██╔═══██╗██║██╔══██╗██║    ██║██╔══██╗██╔══██╗██╔════╝
+██║   ██║██║   ██║██║██║  ██║██║ █╗ ██║███████║██████╔╝█████╗  
+╚██╗ ██╔╝██║   ██║██║██║  ██║██║███╗██║██╔══██║██╔═══╝ ██╔══╝  
+ ╚████╔╝ ╚██████╔╝██║██████╔╝╚███╔███╔╝██║  ██║██║     ███████╗
+  ╚═══╝   ╚═════╝ ╚═╝╚═════╝  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝     ╚══════╝
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local CoreGui = game:GetService("CoreGui")
+                🚀 VOIDWARE — 99 Nights In The Forest 🚀
+----------------------------------------------------------------------------
+  IMPORTANT:
+  You must copy and use the FULL script below. Do NOT press on the link.:
 
--- Load the official Voidware
-loadstring(game:HttpGet("https://raw.githubusercontent.com/VapeVoidware/VW-Add/main/newnightsintheforest.lua", true))()
+  loadstring(game:HttpGet("https://raw.githubusercontent.com/VapeVoidware/VW-Add/main/loader.lua", true))()
 
--- Auto Chest System with ESP
+----------------------------------------------------------------------------
+  For support head over to discord.gg/voidware
+----------------------------------------------------------------------------
+]]
+if not game:IsLoaded() then return end
+local CheatEngineMode = false
+if (not getgenv) or (getgenv and type(getgenv) ~= "function") then CheatEngineMode = true end
+if getgenv and not getgenv().shared then CheatEngineMode = true; getgenv().shared = {}; end
+if getgenv and not getgenv().debug then CheatEngineMode = true; getgenv().debug = {traceback = function(string) return string end} end
+if getgenv and not getgenv().require then CheatEngineMode = true; end
+if getgenv and getgenv().require and type(getgenv().require) ~= "function" then CheatEngineMode = true end
+local debugChecks = {
+    Type = "table",
+    Functions = {
+        "getupvalue",
+        "getupvalues",
+        "getconstants",
+        "getproto"
+    }
+}
+local function checkExecutor()
+    if identifyexecutor ~= nil and type(identifyexecutor) == "function" then
+        local suc, res = pcall(function()
+            return identifyexecutor()
+        end)   
+        --local blacklist = {'appleware', 'cryptic', 'delta', 'wave', 'codex', 'swift', 'solara', 'vega'}
+        local blacklist = {'solara', 'cryptic', 'xeno', 'ember', 'ronix'}
+        local core_blacklist = {'solara', 'xeno'}
+        if suc then
+            for i,v in pairs(blacklist) do
+                if string.find(string.lower(tostring(res)), v) then CheatEngineMode = true end
+            end
+            for i,v in pairs(core_blacklist) do
+                if string.find(string.lower(tostring(res)), v) then
+                    pcall(function()
+                        getgenv().queue_on_teleport = function() warn('queue_on_teleport disabled!') end
+                    end)
+                end
+            end
+            if string.find(string.lower(tostring(res)), "delta") then
+                getgenv().isnetworkowner = function()
+                    return true
+                end
+            end
+        end
+    end
+end
+task.spawn(function() pcall(checkExecutor) end)
+local function checkDebug()
+    if CheatEngineMode then return end
+    if not getgenv().debug then 
+        CheatEngineMode = true 
+    else 
+        if type(debug) ~= debugChecks.Type then 
+            CheatEngineMode = true
+        else 
+            for i, v in pairs(debugChecks.Functions) do
+                if not debug[v] or (debug[v] and type(debug[v]) ~= "function") then 
+                    CheatEngineMode = true 
+                else
+                    local suc, res = pcall(debug[v]) 
+                    if tostring(res) == "Not Implemented" then 
+                        CheatEngineMode = true 
+                    end
+                end
+            end
+        end
+    end
+end
+--if (not CheatEngineMode) then checkDebug() end
+shared.CheatEngineMode = shared.CheatEngineMode or CheatEngineMode
+
+if game.PlaceId == 79546208627805 then
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Voidware | 99 Nights In The Forest",
+            Text = "Go In Game for Voidware to load :D [You are in lobby currently]",
+            Duration = 10
+        })
+    end)
+    return
+end 
+
+task.spawn(function()
+    pcall(function()
+        local Services = setmetatable({}, {
+            __index = function(self, key)
+                local suc, service = pcall(game.GetService, game, key)
+                if suc and service then
+                    self[key] = service
+                    return service
+                else
+                    warn(`[Services] Warning: "{key}" is not a valid Roblox service.`)
+                    return nil
+                end
+            end
+        })
+
+        local Players = Services.Players
+        local TextChatService = Services.TextChatService
+        local ChatService = Services.ChatService
+        repeat
+            task.wait()
+        until game:IsLoaded() and Players.LocalPlayer ~= nil
+        local chatVersion = TextChatService and TextChatService.ChatVersion or Enum.ChatVersion.LegacyChatService
+        local TagRegister = shared.TagRegister or {}
+        if not shared.CheatEngineMode then
+            if chatVersion == Enum.ChatVersion.TextChatService then
+                TextChatService.OnIncomingMessage = function(data)
+                    TagRegister = shared.TagRegister or {}
+                    local properties = Instance.new("TextChatMessageProperties", game:GetService("Workspace"))
+                    local TextSource = data.TextSource
+                    local PrefixText = data.PrefixText or ""
+                    if TextSource then
+                        local plr = Players:GetPlayerByUserId(TextSource.UserId)
+                        if plr then
+                            local prefix = ""
+                            if TagRegister[plr] then
+                                prefix = prefix .. TagRegister[plr]
+                            end
+                            if plr:GetAttribute("__OwnsVIPGamepass") and plr:GetAttribute("VIPChatTag") ~= false then
+                                prefix = prefix .. "<font color='rgb(255,210,75)'>[VIP]</font> "
+                            end
+                            local currentLevel = plr:GetAttribute("_CurrentLevel")
+                            if currentLevel then
+                                prefix = prefix .. string.format("<font color='rgb(173,216,230)'>[</font><font color='rgb(255,255,255)'>%s</font><font color='rgb(173,216,230)'>]</font> ", tostring(currentLevel))
+                            end
+                            local playerTagValue = plr:FindFirstChild("PlayerTagValue")
+                            if playerTagValue and playerTagValue.Value then
+                                prefix = prefix .. string.format("<font color='rgb(173,216,230)'>[</font><font color='rgb(255,255,255)'>#%s</font><font color='rgb(173,216,230)'>]</font> ", tostring(playerTagValue.Value))
+                            end
+                            prefix = prefix .. PrefixText
+                            properties.PrefixText = string.format("<font color='rgb(255,255,255)'>%s</font>", prefix)
+                        end
+                    end
+                    return properties
+                end
+            elseif chatVersion == Enum.ChatVersion.LegacyChatService then
+                ChatService:RegisterProcessCommandsFunction("CustomPrefix", function(speakerName, message)
+                    TagRegister = shared.TagRegister or {}
+                    local plr = Players:FindFirstChild(speakerName)
+                    if plr then
+                        local prefix = ""
+                        if TagRegister[plr] then
+                            prefix = prefix .. TagRegister[plr]
+                        end
+                        if plr:GetAttribute("__OwnsVIPGamepass") and plr:GetAttribute("VIPChatTag") ~= false then
+                            prefix = prefix .. "[VIP] "
+                        end
+                        local currentLevel = plr:GetAttribute("_CurrentLevel")
+                        if currentLevel then
+                            prefix = prefix .. string.format("[%s] ", tostring(currentLevel))
+                        end
+                        local playerTagValue = plr:FindFirstChild("PlayerTagValue")
+                        if playerTagValue and playerTagValue.Value then
+                            prefix = prefix .. string.format("[#%s] ", tostring(playerTagValue.Value))
+                        end
+                        prefix = prefix .. speakerName
+                        return prefix .. " " .. message
+                    end
+                    return message
+                end)
+            end
+        end
+    end)
+end)
+
+local commit = shared.CustomCommit and tostring(shared.CustomCommit) or shared.StagingMode and "staging" or "7b3fad2b46336a55beca73caa205fb49dac41165"
+
+-- Load the main Voidware script
+loadstring(game:HttpGet("https://raw.githubusercontent.com/VapeVoidware/VW-Add/"..tostring(commit).."/newnightsintheforest.lua", true))()
+
+-- Auto Chest System with ESP - Integrated into Voidware
 local ChestSystem = {
     Chests = {},
     AutoOpen = false,
@@ -34,7 +211,7 @@ function ChestSystem:CreateESP(chest)
     highlight.FillTransparency = 0.5
     highlight.OutlineTransparency = 0
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = CoreGui
+    highlight.Parent = game:GetService("CoreGui")
     
     self.ESPHighlights[chest.Model] = highlight
     return highlight
@@ -43,7 +220,7 @@ end
 function ChestSystem:UpdateESP()
     if not self.ESPEnabled then return end
     
-    local character = LocalPlayer.Character
+    local character = game.Players.LocalPlayer.Character
     local rootPart = character and character:FindFirstChild("HumanoidRootPart")
     
     for chestModel, highlight in pairs(self.ESPHighlights) do
@@ -135,7 +312,7 @@ end
 
 function ChestSystem:TeleportToChest(chest)
     if not chest or not chest.Position then return false end
-    local character = LocalPlayer.Character
+    local character = game.Players.LocalPlayer.Character
     local humanoid = character and character:FindFirstChildWhichIsA("Humanoid")
     local rootPart = character and character:FindFirstChild("HumanoidRootPart")
     if not humanoid or not rootPart then return false end
@@ -145,7 +322,7 @@ function ChestSystem:TeleportToChest(chest)
 end
 
 function ChestSystem:OpenNearbyChests()
-    local character = LocalPlayer.Character
+    local character = game.Players.LocalPlayer.Character
     if not character then return end
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     if not rootPart then return end
@@ -200,81 +377,179 @@ task.spawn(function()
     end
 end)
 
--- Simple UI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ChestControlGUI"
-ScreenGui.Parent = CoreGui
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 200, 0, 160)
-MainFrame.Position = UDim2.new(0, 10, 0, 10)
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-MainFrame.BorderSizePixel = 1
-MainFrame.BorderColor3 = Color3.fromRGB(80, 80, 80)
-MainFrame.Parent = ScreenGui
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Position = UDim2.new(0, 0, 0, 0)
-Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Title.BorderSizePixel = 0
-Title.Text = "Chest Controls"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 14
-Title.Parent = MainFrame
-
-local AutoOpenToggle = Instance.new("TextButton")
-AutoOpenToggle.Size = UDim2.new(0.9, 0, 0, 30)
-AutoOpenToggle.Position = UDim2.new(0.05, 0, 0, 35)
-AutoOpenToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-AutoOpenToggle.BorderSizePixel = 0
-AutoOpenToggle.Text = "Auto Open: OFF"
-AutoOpenToggle.TextColor3 = Color3.fromRGB(255, 100, 100)
-AutoOpenToggle.Font = Enum.Font.Gotham
-AutoOpenToggle.TextSize = 12
-AutoOpenToggle.Parent = MainFrame
-
-local TeleportToggle = Instance.new("TextButton")
-TeleportToggle.Size = UDim2.new(0.9, 0, 0, 30)
-TeleportToggle.Position = UDim2.new(0.05, 0, 0, 70)
-TeleportToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-TeleportToggle.BorderSizePixel = 0
-TeleportToggle.Text = "Teleport: OFF"
-TeleportToggle.TextColor3 = Color3.fromRGB(255, 100, 100)
-TeleportToggle.Font = Enum.Font.Gotham
-TeleportToggle.TextSize = 12
-TeleportToggle.Parent = MainFrame
-
-local ESPToggle = Instance.new("TextButton")
-ESPToggle.Size = UDim2.new(0.9, 0, 0, 30)
-ESPToggle.Position = UDim2.new(0.05, 0, 0, 105)
-ESPToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-ESPToggle.BorderSizePixel = 0
-ESPToggle.Text = "ESP: OFF"
-ESPToggle.TextColor3 = Color3.fromRGB(255, 100, 100)
-ESPToggle.Font = Enum.Font.Gotham
-ESPToggle.TextSize = 12
-ESPToggle.Parent = MainFrame
-
--- Button functionality
-AutoOpenToggle.MouseButton1Click:Connect(function()
-    ChestSystem.AutoOpen = not ChestSystem.AutoOpen
-    AutoOpenToggle.Text = "Auto Open: " .. (ChestSystem.AutoOpen and "ON" or "OFF")
-    AutoOpenToggle.TextColor3 = ChestSystem.AutoOpen and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
-end)
-
-TeleportToggle.MouseButton1Click:Connect(function()
-    ChestSystem.TeleportToChests = not ChestSystem.TeleportToChests
-    TeleportToggle.Text = "Teleport: " .. (ChestSystem.TeleportToChests and "ON" or "OFF")
-    TeleportToggle.TextColor3 = ChestSystem.TeleportToChests and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
-end)
-
-ESPToggle.MouseButton1Click:Connect(function()
-    local enabled = ChestSystem:ToggleESP()
-    ESPToggle.Text = "ESP: " .. (enabled and "ON" or "OFF")
-    ESPToggle.TextColor3 = enabled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+-- Wait for Voidware UI to load and then add our buttons
+task.spawn(function()
+    local maxWaitTime = 30
+    local waitTime = 0
+    
+    -- Wait for Voidware UI to load
+    while waitTime < maxWaitTime do
+        local voidwareUI = game:GetService("CoreGui"):FindFirstChild("Voidware")
+        if voidwareUI then
+            -- Find the main frame
+            local mainFrame = voidwareUI:FindFirstChild("MainFrame") or voidwareUI:FindFirstChildWhichIsA("Frame")
+            if mainFrame then
+                -- Add Chest Control section
+                local chestSection = Instance.new("Frame")
+                chestSection.Name = "ChestSection"
+                chestSection.Size = UDim2.new(1, -20, 0, 100)
+                chestSection.Position = UDim2.new(0, 10, 0, mainFrame.AbsoluteSize.Y + 10)
+                chestSection.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                chestSection.BorderSizePixel = 1
+                chestSection.BorderColor3 = Color3.fromRGB(80, 80, 80)
+                chestSection.Parent = mainFrame
+                
+                local title = Instance.new("TextLabel")
+                title.Size = UDim2.new(1, 0, 0, 25)
+                title.Position = UDim2.new(0, 0, 0, 0)
+                title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+                title.BorderSizePixel = 0
+                title.Text = "Chest Controls"
+                title.TextColor3 = Color3.fromRGB(255, 255, 255)
+                title.Font = Enum.Font.GothamBold
+                title.TextSize = 14
+                title.Parent = chestSection
+                
+                local autoOpenBtn = Instance.new("TextButton")
+                autoOpenBtn.Size = UDim2.new(0.9, 0, 0, 25)
+                autoOpenBtn.Position = UDim2.new(0.05, 0, 0, 30)
+                autoOpenBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+                autoOpenBtn.BorderSizePixel = 0
+                autoOpenBtn.Text = "Auto Open: OFF"
+                autoOpenBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+                autoOpenBtn.Font = Enum.Font.Gotham
+                autoOpenBtn.TextSize = 12
+                autoOpenBtn.Parent = chestSection
+                
+                local teleportBtn = Instance.new("TextButton")
+                teleportBtn.Size = UDim2.new(0.9, 0, 0, 25)
+                teleportBtn.Position = UDim2.new(0.05, 0, 0, 60)
+                teleportBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+                teleportBtn.BorderSizePixel = 0
+                teleportBtn.Text = "Teleport: OFF"
+                teleportBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+                teleportBtn.Font = Enum.Font.Gotham
+                teleportBtn.TextSize = 12
+                teleportBtn.Parent = chestSection
+                
+                local espBtn = Instance.new("TextButton")
+                espBtn.Size = UDim2.new(0.9, 0, 0, 25)
+                espBtn.Position = UDim2.new(0.05, 0, 0, 90)
+                espBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+                espBtn.BorderSizePixel = 0
+                espBtn.Text = "ESP: OFF"
+                espBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+                espBtn.Font = Enum.Font.Gotham
+                espBtn.TextSize = 12
+                espBtn.Parent = chestSection
+                
+                -- Button functionality
+                autoOpenBtn.MouseButton1Click:Connect(function()
+                    ChestSystem.AutoOpen = not ChestSystem.AutoOpen
+                    autoOpenBtn.Text = "Auto Open: " .. (ChestSystem.AutoOpen and "ON" or "OFF")
+                    autoOpenBtn.TextColor3 = ChestSystem.AutoOpen and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+                end)
+                
+                teleportBtn.MouseButton1Click:Connect(function()
+                    ChestSystem.TeleportToChests = not ChestSystem.TeleportToChests
+                    teleportBtn.Text = "Teleport: " .. (ChestSystem.TeleportToChests and "ON" or "OFF")
+                    teleportBtn.TextColor3 = ChestSystem.TeleportToChests and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+                end)
+                
+                espBtn.MouseButton1Click:Connect(function()
+                    local enabled = ChestSystem:ToggleESP()
+                    espBtn.Text = "ESP: " .. (enabled and "ON" or "OFF")
+                    espBtn.TextColor3 = enabled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+                end)
+                
+                warn("Chest controls added to Voidware UI!")
+                break
+            end
+        end
+        waitTime = waitTime + 1
+        task.wait(1)
+    end
+    
+    -- Fallback: Create standalone UI if Voidware UI not found
+    if waitTime >= maxWaitTime then
+        local ScreenGui = Instance.new("ScreenGui")
+        ScreenGui.Name = "ChestControlGUI"
+        ScreenGui.Parent = game:GetService("CoreGui")
+        ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        
+        local MainFrame = Instance.new("Frame")
+        MainFrame.Size = UDim2.new(0, 200, 0, 120)
+        MainFrame.Position = UDim2.new(0, 10, 0, 10)
+        MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        MainFrame.BorderSizePixel = 1
+        MainFrame.BorderColor3 = Color3.fromRGB(80, 80, 80)
+        MainFrame.Parent = ScreenGui
+        
+        local Title = Instance.new("TextLabel")
+        Title.Size = UDim2.new(1, 0, 0, 30)
+        Title.Position = UDim2.new(0, 0, 0, 0)
+        Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        Title.BorderSizePixel = 0
+        Title.Text = "Chest Controls"
+        Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Title.Font = Enum.Font.GothamBold
+        Title.TextSize = 14
+        Title.Parent = MainFrame
+        
+        local AutoOpenToggle = Instance.new("TextButton")
+        AutoOpenToggle.Size = UDim2.new(0.9, 0, 0, 30)
+        AutoOpenToggle.Position = UDim2.new(0.05, 0, 0, 35)
+        AutoOpenToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        AutoOpenToggle.BorderSizePixel = 0
+        AutoOpenToggle.Text = "Auto Open: OFF"
+        AutoOpenToggle.TextColor3 = Color3.fromRGB(255, 100, 100)
+        AutoOpenToggle.Font = Enum.Font.Gotham
+        AutoOpenToggle.TextSize = 12
+        AutoOpenToggle.Parent = MainFrame
+        
+        local TeleportToggle = Instance.new("TextButton")
+        TeleportToggle.Size = UDim2.new(0.9, 0, 0, 30)
+        TeleportToggle.Position = UDim2.new(0.05, 0, 0, 70)
+        TeleportToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        TeleportToggle.BorderSizePixel = 0
+        TeleportToggle.Text = "Teleport: OFF"
+        TeleportToggle.TextColor3 = Color3.fromRGB(255, 100, 100)
+        TeleportToggle.Font = Enum.Font.Gotham
+        TeleportToggle.TextSize = 12
+        TeleportToggle.Parent = MainFrame
+        
+        local ESPToggle = Instance.new("TextButton")
+        ESPToggle.Size = UDim2.new(0.9, 0, 0, 30)
+        ESPToggle.Position = UDim2.new(0.05, 0, 0, 105)
+        ESPToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        ESPToggle.BorderSizePixel = 0
+        ESPToggle.Text = "ESP: OFF"
+        ESPToggle.TextColor3 = Color3.fromRGB(255, 100, 100)
+        ESPToggle.Font = Enum.Font.Gotham
+        ESPToggle.TextSize = 12
+        ESPToggle.Parent = MainFrame
+        
+        -- Button functionality
+        AutoOpenToggle.MouseButton1Click:Connect(function()
+            ChestSystem.AutoOpen = not ChestSystem.AutoOpen
+            AutoOpenToggle.Text = "Auto Open: " .. (ChestSystem.AutoOpen and "ON" or "OFF")
+            AutoOpenToggle.TextColor3 = ChestSystem.AutoOpen and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+        end)
+        
+        TeleportToggle.MouseButton1Click:Connect(function()
+            ChestSystem.TeleportToChests = not ChestSystem.TeleportToChests
+            TeleportToggle.Text = "Teleport: " .. (ChestSystem.TeleportToChests and "ON" or "OFF")
+            TeleportToggle.TextColor3 = ChestSystem.TeleportToChests and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+        end)
+        
+        ESPToggle.MouseButton1Click:Connect(function()
+            local enabled = ChestSystem:ToggleESP()
+            ESPToggle.Text = "ESP: " .. (enabled and "ON" or "OFF")
+            ESPToggle.TextColor3 = enabled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+        end)
+        
+        warn("Standalone chest controls UI created!")
+    end
 end)
 
 warn("Voidware loaded with Auto-Chest, Teleport, and ESP features!")
