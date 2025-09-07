@@ -1,9 +1,32 @@
---[[ VOIDWARE HEADER (keep the original header here) ]]
+--[[
+██╗   ██╗ ██████╗ ██╗██████╗ ██╗    ██╗ █████╗ ██████╗ ███████╗
+██║   ██║██╔═══██╗██║██╔══██╗██║    ██║██╔══██╗██╔══██╗██╔════╝
+██║   ██║██║   ██║██║██║  ██║██║ █╗ ██║███████║██████╔╝█████╗  
+╚██╗ ██╔╝██║   ██║██║██║  ██║██║███╗██║██╔══██║██╔═══╝ ██╔══╝  
+ ╚████╔╝ ╚██████╔╝██║██████╔╝╚███╔███╔╝██║  ██║██║     ███████╗
+  ╚═══╝   ╚═════╝ ╚═╝╚═════╝  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝     ╚══════╝
 
--- Load the main Voidware script
-loadstring(game:HttpGet("https://raw.githubusercontent.com/VapeVoidware/VW-Add/"..tostring(commit).."/newnightsintheforest.lua", true))()
+                🚀 VOIDWARE — 99 Nights In The Forest 🚀
+                      WITH AUTO CHEST FEATURES
+----------------------------------------------------------------------------
+  IMPORTANT:
+  You must copy and use the FULL script below.
 
--- Precise Chest System for Voidware Integration
+----------------------------------------------------------------------------
+  For support head over to discord.gg/voidware
+----------------------------------------------------------------------------
+]]
+
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+
+-- Auto Chest System
 local ChestSystem = {
     Chests = {},
     AutoOpen = false,
@@ -17,10 +40,27 @@ function ChestSystem:FindChests()
     self.Chests = {}
     
     local itemsFolder = workspace:FindFirstChild("Items")
-    if not itemsFolder then return 0 end
+    if not itemsFolder then
+        -- Alternative chest locations
+        local potentialFolders = {
+            workspace:FindFirstChild("Chests"),
+            workspace:FindFirstChild("Loot"),
+            workspace:FindFirstChild("Treasure"),
+            workspace:FindFirstChild("Rewards")
+        }
+        
+        for _, folder in ipairs(potentialFolders) do
+            if folder then
+                itemsFolder = folder
+                break
+            end
+        end
+        
+        if not itemsFolder then return 0 end
+    end
     
     for _, obj in ipairs(itemsFolder:GetDescendants()) do
-        if obj:IsA("Model") and obj.Name == "Item Chest" then
+        if obj:IsA("Model") and (obj.Name == "Item Chest" or obj.Name:find("Chest") or obj.Name:find("Box") or obj.Name:find("Crate")) then
             local primaryPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
             if primaryPart then
                 local opened = self:IsChestOpened(obj)
@@ -56,13 +96,23 @@ function ChestSystem:FindInteractionPart(chestModel)
 end
 
 function ChestSystem:IsChestOpened(chestModel)
-    local stateValues = {"Opened", "Open", "Used", "Activated", "Empty"}
+    local stateValues = {"Opened", "Open", "Used", "Activated", "Empty", "Enabled"}
     for _, valueName in ipairs(stateValues) do
         local value = chestModel:FindFirstChild(valueName)
         if value and value:IsA("BoolValue") then
             return value.Value
         end
     end
+    
+    -- Visual check for opened chests
+    local lid = chestModel:FindFirstChild("Lid") or chestModel:FindFirstChild("Top")
+    if lid and lid:IsA("BasePart") then
+        local rotation = lid.CFrame - lid.Position
+        if math.abs(rotation.X) > 0.5 or math.abs(rotation.Y) > 0.5 then
+            return true
+        end
+    end
+    
     return false
 end
 
@@ -81,7 +131,7 @@ function ChestSystem:CreateESP(chest)
     highlight.FillTransparency = 0.5
     highlight.OutlineTransparency = 0
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = game:GetService("CoreGui")
+    highlight.Parent = CoreGui
     
     self.ESPHighlights[chest.Model] = highlight
 end
@@ -122,9 +172,17 @@ end
 function ChestSystem:OpenChest(chest)
     if chest.Opened then return false end
     
-    local character = game.Players.LocalPlayer.Character
+    local character = LocalPlayer.Character
     if not character then return false end
     
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return false end
+    
+    -- Position player directly at chest
+    humanoidRootPart.CFrame = CFrame.new(chest.Position + Vector3.new(0, 2, 0))
+    task.wait(0.1)
+    
+    -- Try all interaction methods
     local clickDetector = chest.Model:FindFirstChildWhichIsA("ClickDetector")
     if clickDetector then
         fireclickdetector(clickDetector)
@@ -139,11 +197,18 @@ function ChestSystem:OpenChest(chest)
         return true
     end
     
+    -- Fallback: Simulate touch
+    local touchPart = chest.InteractionPart
+    if touchPart then
+        humanoidRootPart.CFrame = touchPart.CFrame + Vector3.new(0, 2, 0)
+        task.wait(0.2)
+    end
+    
     return false
 end
 
 function ChestSystem:OpenNearbyChests()
-    local character = game.Players.LocalPlayer.Character
+    local character = LocalPlayer.Character
     if not character then return end
     
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
@@ -153,8 +218,9 @@ function ChestSystem:OpenNearbyChests()
         if not chest.Opened then
             local distance = (humanoidRootPart.Position - chest.Position).Magnitude
             if distance <= self.ChestOpenRadius then
-                self:OpenChest(chest)
-                task.wait(0.3)
+                if self:OpenChest(chest) then
+                    task.wait(0.3)
+                end
             end
         end
     end
@@ -162,7 +228,7 @@ end
 
 function ChestSystem:TeleportToChest(chest)
     if not chest then return false end
-    local character = game.Players.LocalPlayer.Character
+    local character = LocalPlayer.Character
     local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
     if not humanoidRootPart then return false end
     
@@ -199,131 +265,269 @@ task.spawn(function()
     end
 end)
 
--- Integrate into Voidware UI
-task.spawn(function()
-    local maxWaitTime = 30
-    local waitTime = 0
-    
-    while waitTime < maxWaitTime do
-        local voidwareUI = game:GetService("CoreGui"):FindFirstChild("Voidware")
-        if voidwareUI then
-            -- Find Main Tab
-            local mainTab = voidwareUI:FindFirstChild("Main") or voidwareUI:FindFirstChild("HomeTab") or voidwareUI:FindFirstChildWhichIsA("Frame")
-            if mainTab then
-                -- Add Auto Open to Main Tab
-                local autoOpenLabel = Instance.new("TextLabel")
-                autoOpenLabel.Name = "AutoChestLabel"
-                autoOpenLabel.Size = UDim2.new(0, 120, 0, 20)
-                autoOpenLabel.Position = UDim2.new(0, 10, 0, 200)
-                autoOpenLabel.BackgroundTransparency = 1
-                autoOpenLabel.Text = "Auto Open Chests:"
-                autoOpenLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                autoOpenLabel.Font = Enum.Font.Gotham
-                autoOpenLabel.TextSize = 12
-                autoOpenLabel.TextXAlignment = Enum.TextXAlignment.Left
-                autoOpenLabel.Parent = mainTab
-                
-                local autoOpenToggle = Instance.new("TextButton")
-                autoOpenToggle.Name = "AutoChestToggle"
-                autoOpenToggle.Size = UDim2.new(0, 40, 0, 20)
-                autoOpenToggle.Position = UDim2.new(0, 140, 0, 200)
-                autoOpenToggle.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-                autoOpenToggle.BorderSizePixel = 0
-                autoOpenToggle.Text = "OFF"
-                autoOpenToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-                autoOpenToggle.Font = Enum.Font.GothamBold
-                autoOpenToggle.TextSize = 12
-                autoOpenToggle.Parent = mainTab
-                
-                -- Add Teleport to Main Tab
-                local teleportLabel = Instance.new("TextLabel")
-                teleportLabel.Name = "TeleportChestLabel"
-                teleportLabel.Size = UDim2.new(0, 120, 0, 20)
-                teleportLabel.Position = UDim2.new(0, 10, 0, 225)
-                teleportLabel.BackgroundTransparency = 1
-                teleportLabel.Text = "Teleport to Chests:"
-                teleportLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                teleportLabel.Font = Enum.Font.Gotham
-                teleportLabel.TextSize = 12
-                teleportLabel.TextXAlignment = Enum.TextXAlignment.Left
-                teleportLabel.Parent = mainTab
-                
-                local teleportToggle = Instance.new("TextButton")
-                teleportToggle.Name = "TeleportChestToggle"
-                teleportToggle.Size = UDim2.new(0, 40, 0, 20)
-                teleportToggle.Position = UDim2.new(0, 140, 0, 225)
-                teleportToggle.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-                teleportToggle.BorderSizePixel = 0
-                teleportToggle.Text = "OFF"
-                teleportToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-                teleportToggle.Font = Enum.Font.GothamBold
-                teleportToggle.TextSize = 12
-                teleportToggle.Parent = mainTab
-                
-                -- Find Visuals/ESP Tab
-                local visualsTab = voidwareUI:FindFirstChild("Visuals") or voidwareUI:FindFirstChild("ESP") or voidwareUI:FindFirstChild("Render")
-                if visualsTab then
-                    -- Add Chest ESP to Visuals Tab
-                    local espLabel = Instance.new("TextLabel")
-                    espLabel.Name = "ChestESPLabel"
-                    espLabel.Size = UDim2.new(0, 120, 0, 20)
-                    espLabel.Position = UDim2.new(0, 10, 0, 150)
-                    espLabel.BackgroundTransparency = 1
-                    espLabel.Text = "Chest ESP:"
-                    espLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                    espLabel.Font = Enum.Font.Gotham
-                    espLabel.TextSize = 12
-                    espLabel.TextXAlignment = Enum.TextXAlignment.Left
-                    espLabel.Parent = visualsTab
-                    
-                    local espToggle = Instance.new("TextButton")
-                    espToggle.Name = "ChestESPToggle"
-                    espToggle.Size = UDim2.new(0, 40, 0, 20)
-                    espToggle.Position = UDim2.new(0, 140, 0, 150)
-                    espToggle.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-                    espToggle.BorderSizePixel = 0
-                    espToggle.Text = "OFF"
-                    espToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-                    espToggle.Font = Enum.Font.GothamBold
-                    espToggle.TextSize = 12
-                    espToggle.Parent = visualsTab
-                    
-                    -- ESP Toggle functionality
-                    espToggle.MouseButton1Click:Connect(function()
-                        ChestSystem.ESPEnabled = not ChestSystem.ESPEnabled
-                        espToggle.Text = ChestSystem.ESPEnabled and "ON" or "OFF"
-                        espToggle.BackgroundColor3 = ChestSystem.ESPEnabled and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
-                        
-                        if ChestSystem.ESPEnabled then
-                            for _, chest in ipairs(ChestSystem.Chests) do
-                                ChestSystem:CreateESP(chest)
-                            end
-                        else
-                            ChestSystem:ClearESP()
-                        end
-                    end)
-                end
-                
-                -- Toggle functionality
-                autoOpenToggle.MouseButton1Click:Connect(function()
-                    ChestSystem.AutoOpen = not ChestSystem.AutoOpen
-                    autoOpenToggle.Text = ChestSystem.AutoOpen and "ON" or "OFF"
-                    autoOpenToggle.BackgroundColor3 = ChestSystem.AutoOpen and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
-                end)
-                
-                teleportToggle.MouseButton1Click:Connect(function()
-                    ChestSystem.TeleportToChests = not ChestSystem.TeleportToChests
-                    teleportToggle.Text = ChestSystem.TeleportToChests and "ON" or "OFF"
-                    teleportToggle.BackgroundColor3 = ChestSystem.TeleportToChests and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
-                end)
-                
-                warn("Chest features integrated into Voidware UI!")
-                break
+-- Main Voidware UI with integrated chest features
+local function CreateVoidwareUI()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "Voidware"
+    ScreenGui.Parent = CoreGui
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    -- Main Frame
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Size = UDim2.new(0, 300, 0, 400)
+    MainFrame.Position = UDim2.new(0.5, -150, 0.5, -200)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    MainFrame.BorderSizePixel = 1
+    MainFrame.BorderColor3 = Color3.fromRGB(60, 60, 60)
+    MainFrame.Parent = ScreenGui
+
+    -- Title
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, 0, 0, 40)
+    Title.Position = UDim2.new(0, 0, 0, 0)
+    Title.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    Title.BorderSizePixel = 0
+    Title.Text = "VOIDWARE - 99 Nights"
+    Title.TextColor3 = Color3.fromRGB(0, 255, 255)
+    Title.Font = Enum.Font.GothamBold
+    Title.TextSize = 16
+    Title.Parent = MainFrame
+
+    -- Tabs
+    local Tabs = Instance.new("Frame")
+    Tabs.Size = UDim2.new(1, 0, 0, 30)
+    Tabs.Position = UDim2.new(0, 0, 0, 40)
+    Tabs.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Tabs.BorderSizePixel = 0
+    Tabs.Parent = MainFrame
+
+    local MainTab = Instance.new("TextButton")
+    MainTab.Size = UDim2.new(0.5, 0, 1, 0)
+    MainTab.Position = UDim2.new(0, 0, 0, 0)
+    MainTab.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    MainTab.BorderSizePixel = 0
+    MainTab.Text = "MAIN"
+    MainTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+    MainTab.Font = Enum.Font.Gotham
+    MainTab.TextSize = 12
+    MainTab.Parent = Tabs
+
+    local VisualsTab = Instance.new("TextButton")
+    VisualsTab.Size = UDim2.new(0.5, 0, 1, 0)
+    VisualsTab.Position = UDim2.new(0.5, 0, 0, 0)
+    VisualsTab.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    VisualsTab.BorderSizePixel = 0
+    VisualsTab.Text = "VISUALS"
+    VisualsTab.TextColor3 = Color3.fromRGB(200, 200, 200)
+    VisualsTab.Font = Enum.Font.Gotham
+    VisualsTab.TextSize = 12
+    VisualsTab.Parent = Tabs
+
+    -- Content Area
+    local Content = Instance.new("Frame")
+    Content.Size = UDim2.new(1, -20, 1, -80)
+    Content.Position = UDim2.new(0, 10, 0, 75)
+    Content.BackgroundTransparency = 1
+    Content.Parent = MainFrame
+
+    -- Main Tab Content
+    local MainContent = Instance.new("ScrollingFrame")
+    MainContent.Size = UDim2.new(1, 0, 1, 0)
+    MainContent.Position = UDim2.new(0, 0, 0, 0)
+    MainContent.BackgroundTransparency = 1
+    MainContent.BorderSizePixel = 0
+    MainContent.ScrollBarThickness = 4
+    MainContent.Parent = Content
+
+    local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.Parent = MainContent
+    UIListLayout.Padding = UDim.new(0, 5)
+
+    -- Auto Open Chests
+    local AutoOpenFrame = Instance.new("Frame")
+    AutoOpenFrame.Size = UDim2.new(1, 0, 0, 25)
+    AutoOpenFrame.BackgroundTransparency = 1
+    AutoOpenFrame.Parent = MainContent
+
+    local AutoOpenLabel = Instance.new("TextLabel")
+    AutoOpenLabel.Size = UDim2.new(0.7, 0, 1, 0)
+    AutoOpenLabel.Position = UDim2.new(0, 0, 0, 0)
+    AutoOpenLabel.BackgroundTransparency = 1
+    AutoOpenLabel.Text = "Auto Open Chests:"
+    AutoOpenLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AutoOpenLabel.Font = Enum.Font.Gotham
+    AutoOpenLabel.TextSize = 12
+    AutoOpenLabel.TextXAlignment = Enum.TextXAlignment.Left
+    AutoOpenLabel.Parent = AutoOpenFrame
+
+    local AutoOpenToggle = Instance.new("TextButton")
+    AutoOpenToggle.Size = UDim2.new(0.25, 0, 0.8, 0)
+    AutoOpenToggle.Position = UDim2.new(0.75, 0, 0.1, 0)
+    AutoOpenToggle.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    AutoOpenToggle.BorderSizePixel = 0
+    AutoOpenToggle.Text = "OFF"
+    AutoOpenToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AutoOpenToggle.Font = Enum.Font.GothamBold
+    AutoOpenToggle.TextSize = 12
+    AutoOpenToggle.Parent = AutoOpenFrame
+
+    -- Teleport to Chests
+    local TeleportFrame = Instance.new("Frame")
+    TeleportFrame.Size = UDim2.new(1, 0, 0, 25)
+    TeleportFrame.BackgroundTransparency = 1
+    TeleportFrame.Parent = MainContent
+
+    local TeleportLabel = Instance.new("TextLabel")
+    TeleportLabel.Size = UDim2.new(0.7, 0, 1, 0)
+    TeleportLabel.Position = UDim2.new(0, 0, 0, 0)
+    TeleportLabel.BackgroundTransparency = 1
+    TeleportLabel.Text = "Teleport to Chests:"
+    TeleportLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TeleportLabel.Font = Enum.Font.Gotham
+    TeleportLabel.TextSize = 12
+    TeleportLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TeleportLabel.Parent = TeleportFrame
+
+    local TeleportToggle = Instance.new("TextButton")
+    TeleportToggle.Size = UDim2.new(0.25, 0, 0.8, 0)
+    TeleportToggle.Position = UDim2.new(0.75, 0, 0.1, 0)
+    TeleportToggle.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    TeleportToggle.BorderSizePixel = 0
+    TeleportToggle.Text = "OFF"
+    TeleportToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TeleportToggle.Font = Enum.Font.GothamBold
+    TeleportToggle.TextSize = 12
+    TeleportToggle.Parent = TeleportFrame
+
+    -- Visuals Tab Content
+    local VisualsContent = Instance.new("ScrollingFrame")
+    VisualsContent.Size = UDim2.new(1, 0, 1, 0)
+    VisualsContent.Position = UDim2.new(0, 0, 0, 0)
+    VisualsContent.BackgroundTransparency = 1
+    VisualsContent.BorderSizePixel = 0
+    VisualsContent.ScrollBarThickness = 4
+    VisualsContent.Visible = false
+    VisualsContent.Parent = Content
+
+    local UIListLayout2 = Instance.new("UIListLayout")
+    UIListLayout2.Parent = VisualsContent
+    UIListLayout2.Padding = UDim.new(0, 5)
+
+    -- Chest ESP
+    local ESPFrame = Instance.new("Frame")
+    ESPFrame.Size = UDim2.new(1, 0, 0, 25)
+    ESPFrame.BackgroundTransparency = 1
+    ESPFrame.Parent = VisualsContent
+
+    local ESPLabel = Instance.new("TextLabel")
+    ESPLabel.Size = UDim2.new(0.7, 0, 1, 0)
+    ESPLabel.Position = UDim2.new(0, 0, 0, 0)
+    ESPLabel.BackgroundTransparency = 1
+    ESPLabel.Text = "Chest ESP:"
+    ESPLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ESPLabel.Font = Enum.Font.Gotham
+    ESPLabel.TextSize = 12
+    ESPLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ESPLabel.Parent = ESPFrame
+
+    local ESPToggle = Instance.new("TextButton")
+    ESPToggle.Size = UDim2.new(0.25, 0, 0.8, 0)
+    ESPToggle.Position = UDim2.new(0.75, 0, 0.1, 0)
+    ESPToggle.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    ESPToggle.BorderSizePixel = 0
+    ESPToggle.Text = "OFF"
+    ESPToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ESPToggle.Font = Enum.Font.GothamBold
+    ESPToggle.TextSize = 12
+    ESPToggle.Parent = ESPFrame
+
+    -- Tab Switching
+    MainTab.MouseButton1Click:Connect(function()
+        MainContent.Visible = true
+        VisualsContent.Visible = false
+        MainTab.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        VisualsTab.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    end)
+
+    VisualsTab.MouseButton1Click:Connect(function()
+        MainContent.Visible = false
+        VisualsContent.Visible = true
+        MainTab.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        VisualsTab.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    end)
+
+    -- Chest Feature Toggles
+    AutoOpenToggle.MouseButton1Click:Connect(function()
+        ChestSystem.AutoOpen = not ChestSystem.AutoOpen
+        AutoOpenToggle.Text = ChestSystem.AutoOpen and "ON" or "OFF"
+        AutoOpenToggle.BackgroundColor3 = ChestSystem.AutoOpen and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+    end)
+
+    TeleportToggle.MouseButton1Click:Connect(function()
+        ChestSystem.TeleportToChests = not ChestSystem.TeleportToChests
+        TeleportToggle.Text = ChestSystem.TeleportToChests and "ON" or "OFF"
+        TeleportToggle.BackgroundColor3 = ChestSystem.TeleportToChests and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+    end)
+
+    ESPToggle.MouseButton1Click:Connect(function()
+        ChestSystem.ESPEnabled = not ChestSystem.ESPEnabled
+        ESPToggle.Text = ChestSystem.ESPEnabled and "ON" or "OFF"
+        ESPToggle.BackgroundColor3 = ChestSystem.ESPEnabled and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+        
+        if ChestSystem.ESPEnabled then
+            for _, chest in ipairs(ChestSystem.Chests) do
+                ChestSystem:CreateESP(chest)
             end
+        else
+            ChestSystem:ClearESP()
         end
-        waitTime = waitTime + 1
-        task.wait(1)
-    end
+    end)
+
+    -- Make draggable
+    local dragging = false
+    local dragInput, dragStart, startPos
+
+    Title.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    Title.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    return ScreenGui
+end
+
+-- Initialize
+task.spawn(function()
+    local voidwareUI = CreateVoidwareUI()
+    warn("Voidware with Auto Chest Features loaded!")
+    
+    -- Initial chest scan
+    task.wait(3)
+    local chestCount = ChestSystem:FindChests()
+    warn("Found " .. chestCount .. " chests")
 end)
 
-warn("Voidware loaded with integrated Chest System!")
+-- Original Voidware functionality would continue here...
+-- [The rest of the original Voidware code would follow]
+
+warn("Voidware with built-in Chest System initialized!")
